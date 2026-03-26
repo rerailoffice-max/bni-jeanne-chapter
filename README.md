@@ -30,7 +30,7 @@
 
 ## 🎯 今期の重点施策
 
-> [📋 施策ボード（GitHub Projects）で進捗を確認](../../projects)
+> [📋 施策ボード（GitHub Projects）で進捗を確認](https://github.com/users/rerailoffice-max/projects/1)
 
 ### メンバー拡大（新規獲得）
 - [ ] 税理士の招待活動 → 相続チーム完成 [#1](../../issues/1)
