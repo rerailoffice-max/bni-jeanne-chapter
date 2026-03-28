@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ジャンヌ ゲスト招待ツール</title>
+<title>ジャンヌ ゲスト招待AI</title>
 <style>
   :root { --red: #b22234; --gold: #c9a84c; --dark: #1a1a2e; --green: #2d8a4e; }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -11,417 +11,339 @@
   .header { background: linear-gradient(135deg, var(--dark), #16213e); color: #fff; text-align: center; padding: 30px 20px; }
   .header h1 { font-size: 22px; margin-bottom: 6px; }
   .header p { color: var(--gold); font-size: 14px; }
-  .search-box { max-width: 600px; margin: -24px auto 0; padding: 0 20px; position: relative; z-index: 10; }
+  .settings-btn { position: absolute; top: 16px; right: 16px; background: none; border: 1px solid rgba(255,255,255,0.3); color: #aaa; padding: 6px 12px; border-radius: 8px; font-size: 12px; cursor: pointer; }
+  .settings-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .search-area { max-width: 600px; margin: -24px auto 0; padding: 0 20px; position: relative; z-index: 10; }
+  .search-box { display: flex; gap: 8px; }
   .search-box input {
-    width: 100%; padding: 18px 24px; border: 3px solid var(--red); border-radius: 16px;
+    flex: 1; padding: 18px 24px; border: 3px solid var(--red); border-radius: 16px;
     font-size: 18px; outline: none; box-shadow: 0 4px 20px rgba(0,0,0,0.12);
-    transition: border-color 0.3s;
   }
   .search-box input:focus { border-color: var(--gold); }
-  .search-box input::placeholder { color: #aaa; }
-  .tags { max-width: 600px; margin: 16px auto; padding: 0 20px; display: flex; flex-wrap: wrap; gap: 8px; }
-  .tag {
-    background: #fff; border: 1px solid #ddd; border-radius: 20px; padding: 6px 14px;
-    font-size: 13px; cursor: pointer; transition: all 0.2s;
+  .search-box button {
+    background: var(--red); color: #fff; border: none; padding: 0 24px;
+    border-radius: 16px; font-size: 16px; cursor: pointer; font-weight: 700;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12); transition: background 0.2s; white-space: nowrap;
   }
+  .search-box button:hover { background: #8b1a2b; }
+  .search-box button:disabled { background: #999; cursor: not-allowed; }
+  .tags { max-width: 600px; margin: 16px auto; padding: 0 20px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .tag { background: #fff; border: 1px solid #ddd; border-radius: 20px; padding: 6px 14px; font-size: 13px; cursor: pointer; transition: all 0.2s; }
   .tag:hover, .tag.active { background: var(--red); color: #fff; border-color: var(--red); }
   .tag.priority { border-color: var(--red); color: var(--red); font-weight: 600; }
-  .tag.priority:hover, .tag.priority.active { background: var(--red); color: #fff; }
-  .result { max-width: 600px; margin: 24px auto; padding: 0 20px; display: none; }
-  .result.show { display: block; }
+  .tag.priority:hover { background: var(--red); color: #fff; }
+  .result { max-width: 600px; margin: 24px auto; padding: 0 20px; }
+  .loading { text-align: center; padding: 40px; }
+  .loading .spinner { display: inline-block; width: 40px; height: 40px; border: 4px solid #ddd; border-top-color: var(--red); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .match-card {
     background: #fff; border-radius: 16px; padding: 24px; margin-bottom: 16px;
     box-shadow: 0 2px 12px rgba(0,0,0,0.06); border-left: 5px solid var(--green);
   }
-  .match-card.new-slot { border-left-color: var(--red); }
-  .match-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-  .match-badge {
-    background: var(--green); color: #fff; padding: 4px 12px; border-radius: 20px;
-    font-size: 12px; font-weight: 700;
-  }
-  .match-card.new-slot .match-badge { background: var(--red); }
-  .match-team { font-size: 20px; font-weight: 800; }
+  .match-card.highlight { border-left-color: var(--red); }
+  .match-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .match-badge { background: var(--green); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .match-card.highlight .match-badge { background: var(--red); }
+  .best-badge { background: var(--gold); color: #fff; padding: 3px 10px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+  .match-team { font-size: 20px; font-weight: 800; margin-bottom: 4px; }
   .match-role { color: var(--red); font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+  .ai-analysis {
+    background: linear-gradient(135deg, #f0f4ff, #eef2ff); border-radius: 12px;
+    padding: 16px; margin-bottom: 16px; border: 1px solid #c7d2fe;
+  }
+  .ai-analysis .ai-label { font-size: 12px; color: #6366f1; font-weight: 700; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .ai-analysis .ai-text { font-size: 14px; line-height: 1.7; white-space: pre-wrap; }
   .pitch-box {
     background: linear-gradient(135deg, #fef3c7, #fffbeb); border-radius: 12px;
     padding: 16px; margin-bottom: 16px; border: 1px solid #fde68a;
   }
   .pitch-box .pitch-label { font-size: 12px; color: var(--gold); font-weight: 700; margin-bottom: 6px; }
-  .pitch-box .pitch-text { font-size: 15px; line-height: 1.7; }
+  .pitch-box .pitch-text { font-size: 15px; line-height: 1.7; white-space: pre-wrap; }
   .members-box { margin-bottom: 16px; }
   .members-box h4 { font-size: 14px; color: #666; margin-bottom: 8px; }
-  .member-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; }
+  .member-row { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
   .member-row:last-child { border-bottom: none; }
-  .member-role { font-size: 12px; color: #888; min-width: 100px; }
-  .member-name { font-size: 14px; font-weight: 600; }
-  .flow-box {
-    background: #f0f4ff; border-radius: 12px; padding: 16px;
-    border: 1px solid #bfdbfe; margin-bottom: 16px;
-  }
+  .member-role { font-size: 12px; color: #888; min-width: 90px; }
+  .member-name { font-weight: 600; }
+  .flow-box { background: #f0f4ff; border-radius: 12px; padding: 16px; border: 1px solid #bfdbfe; margin-bottom: 16px; }
   .flow-box .flow-label { font-size: 12px; color: #3b82f6; font-weight: 700; margin-bottom: 6px; }
   .flow-box .flow-text { font-size: 13px; line-height: 1.6; }
   .share-box { text-align: center; margin-top: 12px; }
-  .share-btn {
-    background: var(--dark); color: #fff; border: none; padding: 12px 24px;
-    border-radius: 10px; font-size: 14px; cursor: pointer; margin: 4px;
-    transition: background 0.2s;
-  }
+  .share-btn { background: var(--dark); color: #fff; border: none; padding: 12px 24px; border-radius: 10px; font-size: 14px; cursor: pointer; margin: 4px; }
   .share-btn:hover { background: var(--red); }
   .empty-state { text-align: center; padding: 40px; color: #999; }
   .empty-state .emoji { font-size: 48px; margin-bottom: 12px; }
-  .suggest-section { max-width: 600px; margin: 16px auto; padding: 0 20px; }
-  .suggest-section h3 { font-size: 14px; color: #666; margin-bottom: 8px; }
+  .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 100; display: none; align-items: center; justify-content: center; }
+  .modal-overlay.show { display: flex; }
+  .modal { background: #fff; border-radius: 16px; padding: 32px; max-width: 440px; width: 90%; }
+  .modal h3 { margin-bottom: 12px; }
+  .modal p { font-size: 14px; color: #666; margin-bottom: 16px; line-height: 1.6; }
+  .modal input { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 10px; font-size: 15px; margin-bottom: 12px; }
+  .modal .btn-row { display: flex; gap: 8px; }
+  .modal button { flex: 1; padding: 12px; border: none; border-radius: 10px; font-size: 14px; cursor: pointer; font-weight: 600; }
+  .modal .btn-primary { background: var(--red); color: #fff; }
+  .modal .btn-secondary { background: #eee; color: #666; }
+  .modal a { color: var(--red); }
   @media (max-width: 600px) {
     .search-box input { font-size: 16px; padding: 14px 18px; }
+    .search-box button { padding: 0 16px; font-size: 14px; }
     .match-team { font-size: 18px; }
   }
 </style>
 </head>
 <body>
 
-<div class="header">
-  <h1>🏰 ジャンヌ ゲスト招待ツール</h1>
-  <p>ゲストのカテゴリーを入力 → 最適なパワーチームを即座に提案</p>
+<div class="header" style="position:relative;">
+  <button class="settings-btn" onclick="showApiModal()">⚙️ API設定</button>
+  <h1>🏰 ジャンヌ ゲスト招待AI</h1>
+  <p>ゲストの業種を入力 → AIが最適なパワーチームを提案</p>
 </div>
 
-<div class="search-box">
-  <input type="text" id="searchInput" placeholder="例: 税理士、ヨガ、動画制作、花屋..." autofocus>
+<div class="search-area">
+  <div class="search-box">
+    <input type="text" id="searchInput" placeholder="例: 税理士、ヨガ、動画制作、花屋...">
+    <button id="searchBtn" onclick="doSearch()">🔍 AI分析</button>
+  </div>
 </div>
 
 <div class="tags" id="tagContainer">
   <span class="tag priority" data-q="税理士">🔴 税理士</span>
-  <span class="tag priority" data-q="経営コンサル">🔴 経営コンサル</span>
-  <span class="tag priority" data-q="映像制作">🔴 映像制作</span>
-  <span class="tag priority" data-q="食品EC">🔴 食品EC</span>
-  <span class="tag" data-q="社労士">社労士</span>
-  <span class="tag" data-q="ヨガ">ヨガ</span>
-  <span class="tag" data-q="インテリア">インテリア</span>
-  <span class="tag" data-q="Web制作">Web制作</span>
-  <span class="tag" data-q="引越し">引越し</span>
-  <span class="tag" data-q="ネイル">ネイル</span>
-  <span class="tag" data-q="FP">FP</span>
-  <span class="tag" data-q="葬儀">葬儀</span>
+  <span class="tag priority" data-q="経営コンサルタント">🔴 経営コンサル</span>
+  <span class="tag priority" data-q="映像制作・動画編集">🔴 映像制作</span>
+  <span class="tag priority" data-q="食品ECプロデューサー">🔴 食品EC</span>
+  <span class="tag" data-q="社会保険労務士">社労士</span>
+  <span class="tag" data-q="ヨガインストラクター">ヨガ</span>
+  <span class="tag" data-q="インテリアデザイナー">インテリア</span>
+  <span class="tag" data-q="Webデザイナー・HP制作">Web制作</span>
+  <span class="tag" data-q="葬儀屋・終活カウンセラー">葬儀</span>
+  <span class="tag" data-q="エステティシャン">エステ</span>
+  <span class="tag" data-q="整体師・鍼灸師">整体</span>
+  <span class="tag" data-q="旅行代理店">旅行</span>
 </div>
 
-<div class="result" id="resultContainer"></div>
+<div id="resultContainer" class="result"></div>
 
 <div class="empty-state" id="emptyState">
-  <div class="emoji">🔍</div>
-  <p>ゲストの業種・カテゴリーを入力してください</p>
-  <p style="font-size:13px;color:#bbb;margin-top:8px;">例: 税理士、ヨガインストラクター、動画制作、花屋、保険...</p>
+  <div class="emoji">🤖</div>
+  <p>ゲストの業種・カテゴリーを入力して<br>「AI分析」をクリックしてください</p>
+  <p style="font-size:13px;color:#bbb;margin-top:8px;">AIが最適なパワーチームと招待トークを生成します</p>
+</div>
+
+<!-- API Key モーダル -->
+<div class="modal-overlay" id="apiModal">
+  <div class="modal">
+    <h3>🔑 Gemini APIキー設定</h3>
+    <p>このツールはGoogle Gemini APIを使います。無料で取得できます。<br>
+    <a href="https://aistudio.google.com/apikey" target="_blank">→ APIキーを取得（Google AI Studio）</a></p>
+    <input type="password" id="apiKeyInput" placeholder="APIキーを入力...">
+    <p style="font-size:12px;color:#999;">※ キーはこのブラウザのみに保存され、外部に送信されません</p>
+    <div class="btn-row">
+      <button class="btn-secondary" onclick="closeApiModal()">キャンセル</button>
+      <button class="btn-primary" onclick="saveApiKey()">保存</button>
+    </div>
+  </div>
 </div>
 
 <script>
-const teams = [
-  {
-    id: 1, name: "相続ワンストップチーム", icon: "⚖️",
-    purpose: "相続発生→手続き→資産処分→片付けまで一気通貫",
-    members: [
-      { role: "弁護士", name: "山﨑 大志", detail: "相続紛争・遺言" },
-      { role: "行政書士", name: "柴田 駿", detail: "相続手続き" },
-      { role: "司法書士", name: "鈴木 美穂", detail: "不動産登記" },
-      { role: "生命保険", name: "小野瀬 顕", detail: "相続保険・事業承継" },
-      { role: "不動産", name: "武藤 正和", detail: "相続不動産売却" },
-      { role: "遺品整理", name: "小池 鉄平", detail: "遺品整理・撤去" },
-      { role: "空き家買取", name: "平塚 肇", detail: "相続不動産買取" }
-    ],
-    flow: "相続発生 → 山﨑（紛争）→ 柴田（手続き）→ 小野瀬（保険）→ 鈴木（登記）→ 武藤（売却）→ 小池（遺品整理）→ 平塚（空き家買取）",
-    slots: [
-      { role: "税理士", detail: "相続税申告・生前対策", priority: "最優先", keywords: ["税理士","税務","相続税","確定申告","会計士","税金"] }
-    ]
-  },
-  {
-    id: 2, name: "住まいの買い替え・リノベチーム", icon: "🏠",
-    purpose: "物件購入→リフォーム→美装→入居まで",
-    members: [
-      { role: "マンション売買", name: "岡崎 良和", detail: "仲介・物件探し" },
-      { role: "注文住宅", name: "川上 玲美", detail: "家相風水" },
-      { role: "リフォーム", name: "田中 剛", detail: "間取り変更・設備" },
-      { role: "ハウスクリーニング", name: "加藤 貴博", detail: "美装・定期清掃" },
-      { role: "司法書士", name: "鈴木 美穂", detail: "所有権移転登記" }
-    ],
-    flow: "家を買いたい → 岡崎（物件探し）→ 鈴木（登記）→ 田中（リフォーム）→ 加藤（クリーニング）→ 入居",
-    slots: [
-      { role: "インテリアコーディネーター", detail: "内装・家具コーディネート", priority: "高優先", keywords: ["インテリア","内装","家具","コーディネーター","コーディネート","カーテン"] },
-      { role: "引越し", detail: "売買後の引越しニーズ", priority: "推奨", keywords: ["引越し","引っ越し","引越","運送","配送"] },
-      { role: "住宅ローンFP", detail: "住宅ローン・資金計画", priority: "推奨", keywords: ["住宅ローン","ローン","融資","FP","ファイナンシャル"] }
-    ]
-  },
-  {
-    id: 3, name: "店舗開業・集客チーム", icon: "🍽️",
-    purpose: "飲食店・サロンの開業から集客まで丸ごと支援",
-    members: [
-      { role: "飲食経営", name: "安部 大吾", detail: "イタリアン経営" },
-      { role: "飲食HP", name: "竹内 はな", detail: "月額1万HP" },
-      { role: "LINE構築", name: "下澤 一麻", detail: "リピート施策" },
-      { role: "デザイン", name: "内川 浩", detail: "ロゴ・メニュー" },
-      { role: "写真", name: "糸矢 武史", detail: "料理・店舗撮影" },
-      { role: "Canva", name: "久米 里佳", detail: "SNS内製化支援" },
-      { role: "印刷物", name: "小桧山 隆", detail: "カード・DM" }
-    ],
-    flow: "カフェ開業 → 安部（経営相談）→ 内川（ロゴ）→ 糸矢（写真）→ 竹内（HP）→ 小桧山（印刷）→ 下澤（LINE）→ 久米（SNS）",
-    slots: [
-      { role: "店舗設計/内装", detail: "新規出店の設計", priority: "推奨", keywords: ["店舗設計","内装工事","店舗内装","施工","設計"] },
-      { role: "食品EC/フードPD", detail: "通販・商品開発", priority: "最優先", keywords: ["食品EC","EC","通販","フードプロデューサー","フードコンサル","商品開発","OEM"] },
-      { role: "MEO/口コミ対策", detail: "Googleマップ集客", priority: "推奨", keywords: ["MEO","口コミ","Googleマップ","レビュー","グーグル"] },
-      { role: "広告運用", detail: "Meta/Google広告", priority: "高優先", keywords: ["広告","広告運用","マーケティング","Facebook広告","Instagram広告","Google広告","リスティング","SNS広告"] }
-    ]
-  },
-  {
-    id: 4, name: "法人研修・組織開発チーム", icon: "🏢",
-    purpose: "企業の「人を育てる」ニーズを一括カバー",
-    members: [
-      { role: "人事戦略", name: "米田 智一", detail: "iWAM適性診断" },
-      { role: "マナー研修", name: "府川 文子", detail: "新人・接遇マナー" },
-      { role: "AI研修", name: "大城 芳樹", detail: "AI活用・自動化" },
-      { role: "研修映像", name: "後藤 昭人", detail: "eラーニング制作" }
-    ],
-    flow: "社員教育強化 → 米田（適性診断）→ 府川（マナー研修）→ 大城（AI研修）→ 後藤（動画化）",
-    slots: [
-      { role: "経営コンサル", detail: "補助金・事業計画", priority: "最優先", keywords: ["経営コンサル","コンサルタント","中小企業診断士","補助金","助成金","事業計画","経営相談","コンサル"] },
-      { role: "社労士", detail: "労務管理・就業規則", priority: "高優先", keywords: ["社労士","社会保険労務士","労務","就業規則","給与計算","年金","労働"] },
-      { role: "CSR/ESGコンサル", detail: "企業の社会貢献支援", priority: "高優先", keywords: ["CSR","ESG","SDGs","サステナビリティ","環境","社会貢献"] }
-    ]
-  },
-  {
-    id: 5, name: "華やかイベント・セレモニーチーム", icon: "🎉",
-    purpose: "結婚式・企業パーティー・式典を彩るプロ集団",
-    members: [
-      { role: "ウエディング", name: "山田 宗弘", detail: "ハワイ婚プランニング" },
-      { role: "フォト", name: "糸矢 武史", detail: "当日撮影" },
-      { role: "ヘアメイク", name: "髙橋 可那子", detail: "花嫁ヘアメイク" },
-      { role: "装花", name: "山之内 誠", detail: "会場装花・ブーケ" },
-      { role: "MC", name: "MC.Kaori", detail: "式典MC" },
-      { role: "歌手", name: "冬月 みぃな", detail: "生演奏" },
-      { role: "ケータリング", name: "安部 大吾", detail: "パーティー料理" },
-      { role: "ギフト菓子", name: "荒井 智晃", detail: "引き出物" }
-    ],
-    flow: "結婚式 → 山田（プラン）→ 山之内（装花）→ 髙橋（ヘアメイク）→ 糸矢（撮影）→ MC.Kaori（司会）→ 冬月（歌唱）→ 安部（料理）→ 荒井（引き出物）",
-    slots: [
-      { role: "ドレス/衣装", detail: "ウエディングドレス", priority: "推奨", keywords: ["ドレス","衣装","レンタル衣装","ウエディングドレス","タキシード","和装","着物","着付け"] },
-      { role: "映像制作", detail: "式典映像・余興動画", priority: "推奨", keywords: ["映像","ビデオ","動画","撮影","エンドロール"] },
-      { role: "ジュエリー", detail: "結婚指輪・記念品", priority: "推奨", keywords: ["ジュエリー","指輪","結婚指輪","アクセサリー","宝石"] }
-    ]
-  },
-  {
-    id: 6, name: "女性の自分磨き・トータルビューティーチーム", icon: "✨",
-    purpose: "外見→内面→ライフスタイルまで「美しくなりたい女性」を丸ごと支援",
-    members: [
-      { role: "美容師", name: "髙橋 可那子", detail: "完全紹介制" },
-      { role: "スタイリスト", name: "新谷 芳彦", detail: "パーソナルファッション" },
-      { role: "補正下着", name: "長澤 良子", detail: "ボディライン補正" },
-      { role: "色彩心理", name: "山崎 純代", detail: "パーソナルカラー" },
-      { role: "骨盤ケア", name: "佐々木 千恵美", detail: "産後ケア・よもぎ蒸し" },
-      { role: "アロマ", name: "小塚 友美", detail: "オーダーメイドアロマ" },
-      { role: "ハーブ", name: "山田 聖子", detail: "ハワイアンハーブ" },
-      { role: "キネシオロジー", name: "長澤 紀子", detail: "潜在意識の言語化" },
-      { role: "ボディケア", name: "せいの みわ", detail: "全身ケア" }
-    ],
-    flow: "産後リスタート → 佐々木（骨盤）→ せいの（全身ケア）→ 長澤良子（補正下着）→ 髙橋（ヘア）→ 山崎（カラー診断）→ 新谷（ファッション）→ 小塚（アロマ）",
-    slots: [
-      { role: "ヨガ/ピラティス", detail: "心身の調和", priority: "高優先", keywords: ["ヨガ","ピラティス","yoga","pilates","ストレッチ","瞑想","マインドフルネス"] },
-      { role: "ネイル/エステ", detail: "トータルビューティー", priority: "推奨", keywords: ["ネイル","ネイリスト","エステ","エステティシャン","フェイシャル","痩身","脱毛","まつげ","まつエク"] }
-    ]
-  },
-  {
-    id: 7, name: "経営者の資産形成チーム", icon: "💎",
-    purpose: "経営者の「守り」— 保険・投資・不動産投資をワンストップで",
-    members: [
-      { role: "IFA", name: "西野 匡", detail: "株式投資・ポートフォリオ" },
-      { role: "生命保険", name: "小野瀬 顕", detail: "法人保険・節税" },
-      { role: "投資不動産", name: "村田 純一", detail: "収益物件" },
-      { role: "法務", name: "山﨑 大志", detail: "契約・法的リスク" },
-      { role: "ゴルフ", name: "小高 駿介", detail: "経営者の社交入口" },
-      { role: "ジュニアゴルフ", name: "若林 慶太", detail: "富裕層ファミリー接点" }
-    ],
-    flow: "小高のゴルフ生徒（経営者）→ 小野瀬（保険見直し）→ 西野（資産運用）→ 村田（不動産投資）→ 山﨑（契約書チェック）",
-    slots: [
-      { role: "税理士", detail: "節税対策・法人税務", priority: "最優先", keywords: ["税理士","税務","節税","法人税","確定申告","会計","会計士"] },
-      { role: "FP", detail: "資産設計・ライフプラン", priority: "推奨", keywords: ["FP","ファイナンシャルプランナー","資産設計","ライフプラン","資産運用","資産形成","資産管理"] }
-    ]
-  },
-  {
-    id: 8, name: "ブランディング制作チーム", icon: "🎨",
-    purpose: "企業・個人の「見せ方」を制作面からトータル支援",
-    members: [
-      { role: "デザイン", name: "内川 浩", detail: "ロゴ・名刺・パンフ" },
-      { role: "フォト", name: "糸矢 武史", detail: "商品・プロフィール撮影" },
-      { role: "PODCAST", name: "トーマス", detail: "音声コンテンツ" },
-      { role: "印刷物PD", name: "小桧山 隆", detail: "パンフ・カタログ" },
-      { role: "展示会ブース", name: "小川 真実", detail: "ブランドを見せる場" },
-      { role: "AI制作", name: "大城 芳樹", detail: "AI動画・コンテンツ" },
-      { role: "Canva", name: "久米 里佳", detail: "デザイン内製化" }
-    ],
-    flow: "ブランディング → 内川（ロゴ・VI）→ 糸矢（写真）→ 小桧山（パンフ印刷）→ 小川真実（展示会ブース）→ 大城（AI動画）→ トーマス（PODCAST）",
-    slots: [
-      { role: "映像制作/動画編集", detail: "企業VP・プロモーション動画", priority: "最優先", keywords: ["映像","動画制作","動画編集","ビデオ","VP","プロモーション","YouTube","映像制作","カメラマン","動画"] },
-      { role: "Web制作（一般企業）", detail: "コーポレートサイト制作", priority: "高優先", keywords: ["Web制作","ホームページ","HP制作","ウェブ","webデザイン","webサイト","コーポレートサイト","ランディングページ","LP"] },
-      { role: "コピーライター", detail: "キャッチコピー・文章", priority: "推奨", keywords: ["コピーライター","ライター","コピー","文章","ライティング","取材"] },
-      { role: "PR/広報", detail: "メディア露出支援", priority: "推奨", keywords: ["PR","広報","プレスリリース","メディア","取材","パブリシティ"] }
-    ]
-  }
+// チームデータ
+const TEAMS = [
+  { id:1, name:"相続ワンストップチーム", icon:"⚖️", purpose:"相続発生→手続き→資産処分→片付けまで一気通貫",
+    members:[{r:"弁護士",n:"山﨑大志"},{r:"行政書士",n:"柴田駿"},{r:"司法書士",n:"鈴木美穂"},{r:"生命保険",n:"小野瀬顕"},{r:"不動産",n:"武藤正和"},{r:"遺品整理",n:"小池鉄平"},{r:"空き家買取",n:"平塚肇"}],
+    flow:"相続発生→山﨑(紛争)→柴田(手続き)→小野瀬(保険)→鈴木(登記)→武藤(売却)→小池(遺品整理)→平塚(空き家買取)",
+    vacancies:["税理士(最優先)","葬儀関係(高優先)"]},
+  { id:2, name:"住まいの買い替え・リノベチーム", icon:"🏠", purpose:"物件購入→リフォーム→美装→入居まで",
+    members:[{r:"マンション売買",n:"岡崎良和"},{r:"注文住宅",n:"川上玲美"},{r:"リフォーム",n:"田中剛"},{r:"ハウスクリーニング",n:"加藤貴博"},{r:"司法書士",n:"鈴木美穂"}],
+    flow:"家を買いたい→岡崎(物件探し)→鈴木(登記)→田中(リフォーム)→加藤(クリーニング)",
+    vacancies:["インテリアコーディネーター(高優先)","引越し(推奨)","住宅ローンFP(推奨)"]},
+  { id:3, name:"店舗開業・集客チーム", icon:"🍽️", purpose:"飲食店・サロンの開業から集客まで丸ごと支援",
+    members:[{r:"飲食経営",n:"安部大吾"},{r:"飲食HP",n:"竹内はな"},{r:"LINE構築",n:"下澤一麻"},{r:"デザイン",n:"内川浩"},{r:"写真",n:"糸矢武史"},{r:"Canva",n:"久米里佳"},{r:"印刷物",n:"小桧山隆"}],
+    flow:"カフェ開業→安部(経営相談)→内川(ロゴ)→糸矢(写真)→竹内(HP)→小桧山(印刷)→下澤(LINE)→久米(SNS)",
+    vacancies:["食品EC/フードPD(最優先)","広告運用(高優先)","店舗設計(推奨)"]},
+  { id:4, name:"法人研修・組織開発チーム", icon:"🏢", purpose:"企業の「人を育てる」ニーズを一括カバー",
+    members:[{r:"人事戦略",n:"米田智一"},{r:"マナー研修",n:"府川文子"},{r:"AI研修",n:"大城芳樹"},{r:"研修映像",n:"後藤昭人"}],
+    flow:"社員教育強化→米田(適性診断)→府川(マナー研修)→大城(AI研修)→後藤(動画化)",
+    vacancies:["経営コンサル(最優先)","社労士(高優先)","CSR/ESGコンサル(高優先)"]},
+  { id:5, name:"華やかイベント・セレモニーチーム", icon:"🎉", purpose:"結婚式・企業パーティー・式典を彩るプロ集団",
+    members:[{r:"ウエディング",n:"山田宗弘"},{r:"フォト",n:"糸矢武史"},{r:"ヘアメイク",n:"髙橋可那子"},{r:"装花",n:"山之内誠"},{r:"MC",n:"MC.Kaori"},{r:"歌手",n:"冬月みぃな"},{r:"ケータリング",n:"安部大吾"},{r:"ギフト菓子",n:"荒井智晃"}],
+    flow:"結婚式→山田(プラン)→山之内(装花)→髙橋(ヘアメイク)→糸矢(撮影)→MC.Kaori(司会)→冬月(歌唱)→安部(料理)→荒井(引き出物)",
+    vacancies:["ドレス/衣装(推奨)","ジュエリー(推奨)"]},
+  { id:6, name:"女性の自分磨き・トータルビューティーチーム", icon:"✨", purpose:"外見→内面→ライフスタイルまで丸ごと支援",
+    members:[{r:"美容師",n:"髙橋可那子"},{r:"スタイリスト",n:"新谷芳彦"},{r:"補正下着",n:"長澤良子"},{r:"色彩心理",n:"山崎純代"},{r:"骨盤ケア",n:"佐々木千恵美"},{r:"アロマ",n:"小塚友美"},{r:"ハーブ",n:"山田聖子"},{r:"キネシオロジー",n:"長澤紀子"},{r:"ボディケア",n:"せいのみわ"}],
+    flow:"産後リスタート→佐々木(骨盤)→せいの(全身ケア)→長澤良子(補正下着)→髙橋(ヘア)→山崎(カラー診断)→新谷(ファッション)→小塚(アロマ)",
+    vacancies:["ヨガ/ピラティス(高優先)","ネイル/エステ(推奨)"]},
+  { id:7, name:"経営者の資産形成チーム", icon:"💎", purpose:"経営者の「守り」をワンストップで",
+    members:[{r:"IFA",n:"西野匡"},{r:"生命保険",n:"小野瀬顕"},{r:"投資不動産",n:"村田純一"},{r:"法務",n:"山﨑大志"},{r:"ゴルフ",n:"小高駿介"},{r:"ジュニアゴルフ",n:"若林慶太"}],
+    flow:"小高のゴルフ生徒(経営者)→小野瀬(保険見直し)→西野(資産運用)→村田(不動産投資)→山﨑(契約書)",
+    vacancies:["税理士(最優先)","FP(推奨)"]},
+  { id:8, name:"ブランディング制作チーム", icon:"🎨", purpose:"企業・個人の「見せ方」をトータル支援",
+    members:[{r:"デザイン",n:"内川浩"},{r:"フォト",n:"糸矢武史"},{r:"PODCAST",n:"トーマス"},{r:"印刷物",n:"小桧山隆"},{r:"展示会ブース",n:"小川真実"},{r:"AI制作",n:"大城芳樹"},{r:"Canva",n:"久米里佳"}],
+    flow:"ブランディング→内川(ロゴ)→糸矢(写真)→小桧山(パンフ印刷)→小川(展示会ブース)→大城(AI動画)→トーマス(PODCAST)",
+    vacancies:["映像制作(最優先)","Web制作(高優先)","コピーライター(推奨)","PR/広報(推奨)"]}
 ];
 
-// 汎用キーワード→チームマッピング（どのチームにも直接マッチしない場合用）
-const generalKeywords = [
-  { keywords: ["花","花屋","フラワー","フローリスト","ブーケ","アレンジメント","装花"], teamId: 5, note: "山之内さん（花屋）が既に在籍。同業種のため要確認" },
-  { keywords: ["保険","損保","損害保険","火災保険","自動車保険"], teamId: 7, note: "小野瀬さん（生保）が在籍。損保なら共存可能" },
-  { keywords: ["不動産","不動産投資","賃貸","マンション","売買"], teamId: 2, note: "複数の不動産メンバーが在籍。専門分野の違いを確認" },
-  { keywords: ["弁護士","法律","法務","訴訟"], teamId: 1, note: "山﨑弁護士が在籍。専門分野が異なれば共存可能" },
-  { keywords: ["IT","システム","プログラマー","エンジニア","開発","アプリ"], teamId: 4, note: "法人向けなら研修チーム、制作物なら制作チームとの連携" },
-  { keywords: ["飲食","レストラン","カフェ","居酒屋","料理","シェフ","パティシエ"], teamId: 3, note: "安部さん（イタリアン）が在籍。業態が異なれば共存可能" },
-  { keywords: ["教育","塾","スクール","講師","家庭教師","習い事","子供"], teamId: 7, note: "若林（ジュニアゴルフ）と連携で富裕層ファミリー向けサービス" },
-  { keywords: ["整体","鍼灸","接骨院","整骨院","カイロ","マッサージ","リラクゼーション"], teamId: 6, note: "せいのみわ（ボディケア）と連携。男性向けなら差別化可能" },
-  { keywords: ["保育","ベビーシッター","産後","マタニティ","妊婦"], teamId: 6, note: "佐々木（産後ケア）と連携。ママ向けサービスチーム" },
-  { keywords: ["車","自動車","修理","板金","コーティング","カー"], teamId: 2, note: "住まいチームの周辺サービスとして連携可能" },
-  { keywords: ["旅行","ツアー","旅行代理店","航空券","ホテル"], teamId: 5, note: "山田（ハワイ婚）との連携。イベント旅行の企画" },
-  { keywords: ["通訳","翻訳","英語","外国語","語学"], teamId: 4, note: "法人研修チームで語学研修として連携" },
-  { keywords: ["コーチング","メンタルコーチ","カウンセラー","心理","セラピスト"], teamId: 6, note: "長澤紀子（キネシオロジー）と連携。心理系サービス" },
-  { keywords: ["ペット","トリマー","動物","ドッグ","キャット"], teamId: null, note: "現状チームに組み込みにくい。ペット関連メンバーの追加で新チーム可能" },
-];
+function getApiKey() { return localStorage.getItem('gemini_api_key'); }
+function showApiModal() { document.getElementById('apiModal').classList.add('show'); document.getElementById('apiKeyInput').value = getApiKey() || ''; }
+function closeApiModal() { document.getElementById('apiModal').classList.remove('show'); }
+function saveApiKey() {
+  const key = document.getElementById('apiKeyInput').value.trim();
+  if (key) { localStorage.setItem('gemini_api_key', key); closeApiModal(); }
+}
 
-function search(query) {
-  if (!query.trim()) {
-    document.getElementById('resultContainer').classList.remove('show');
-    document.getElementById('emptyState').style.display = 'block';
-    return;
-  }
+// 起動時にAPIキーチェック
+window.addEventListener('load', () => { if (!getApiKey()) showApiModal(); });
 
-  const q = query.toLowerCase().trim();
-  const results = [];
+async function doSearch() {
+  const query = document.getElementById('searchInput').value.trim();
+  if (!query) return;
 
-  // スロット（募集枠）を検索
-  teams.forEach(team => {
-    team.slots.forEach(slot => {
-      const score = slot.keywords.reduce((s, kw) => {
-        if (q.includes(kw.toLowerCase()) || kw.toLowerCase().includes(q)) return s + 10;
-        return s;
-      }, 0);
-      if (score > 0) results.push({ team, slot, score, type: 'slot' });
+  const apiKey = getApiKey();
+  if (!apiKey) { showApiModal(); return; }
+
+  const btn = document.getElementById('searchBtn');
+  btn.disabled = true; btn.textContent = '分析中...';
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('resultContainer').innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:12px;color:#999;">AIが最適なチームを分析中...</p></div>';
+
+  const teamsInfo = TEAMS.map(t =>
+    `チーム${t.id}「${t.name}」: ${t.purpose}\nメンバー: ${t.members.map(m=>m.r+'='+m.n).join(', ')}\n顧客フロー: ${t.flow}\n空きポジション: ${t.vacancies.join(', ')}`
+  ).join('\n\n');
+
+  const prompt = `あなたはBNIジャンヌチャプターのメンバーシップ委員のAIアシスタントです。
+
+以下の8つのパワーチームがあります:
+${teamsInfo}
+
+ゲスト候補の業種: 「${query}」
+
+以下のJSON形式で回答してください。JSONのみを出力し、他のテキストは不要です:
+{
+  "bestTeam": チームID(1-8の数字),
+  "position": "このゲストがチーム内で担う役割名",
+  "isVacancy": true/false(空きポジションに該当するか),
+  "priority": "最優先/高優先/推奨/通常",
+  "analysis": "なぜこのチームが最適かの分析（3-4文、日本語）。具体的にどのメンバーのお客さんがこのゲストのお客さんになるか、逆にこのゲストのお客さんがどのメンバーに流れるかを説明。",
+  "pitch": "ビジター招待トーク（日本語、150-200文字）。「あなたが入ると○○さんと△△さんのお客さんが直接あなたのお客さんになります」という具体的な訴求。",
+  "customerFlow": "このゲストを含めた新しい顧客フロー例（→で繋ぐ）",
+  "secondTeam": チームID or null(サブチームがあれば),
+  "secondReason": "サブチームの理由（あれば）"
+}`;
+
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1024 }
+      })
     });
-  });
 
-  // 汎用キーワード検索
-  generalKeywords.forEach(gk => {
-    const score = gk.keywords.reduce((s, kw) => {
-      if (q.includes(kw.toLowerCase()) || kw.toLowerCase().includes(q)) return s + 5;
-      return s;
-    }, 0);
-    if (score > 0) {
-      const team = gk.teamId ? teams.find(t => t.id === gk.teamId) : null;
-      results.push({ team, note: gk.note, score, type: 'general' });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error?.message || 'API Error');
     }
-  });
 
-  // スコア順にソート
-  results.sort((a, b) => b.score - a.score);
-
-  // 重複チーム除去
-  const seen = new Set();
-  const unique = results.filter(r => {
-    const key = r.team ? r.team.id + (r.slot ? r.slot.role : '') : r.note;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-
-  renderResults(unique.slice(0, 3), query);
-}
-
-function renderResults(results, query) {
-  const container = document.getElementById('resultContainer');
-  const empty = document.getElementById('emptyState');
-
-  if (results.length === 0) {
-    container.innerHTML = `
+    const data = await res.json();
+    const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const result = JSON.parse(jsonStr);
+    renderAIResult(result, query);
+  } catch (e) {
+    document.getElementById('resultContainer').innerHTML = `
       <div class="match-card">
-        <div class="match-header"><span class="match-team">🤔 「${query}」に直接マッチするチームが見つかりません</span></div>
-        <p style="color:#666;margin-top:8px;">ただし、ジャンヌは45名のプロフェッショナルが在籍しています。<br>具体的な業種をもう少し詳しく入力するか、メンバーシップ委員（大城）にご相談ください。</p>
+        <p style="color:var(--red);">⚠️ エラー: ${e.message}</p>
+        <p style="color:#666;margin-top:8px;">APIキーを確認するか、もう一度お試しください。</p>
+        <button class="share-btn" onclick="showApiModal()" style="margin-top:12px;">⚙️ APIキー設定</button>
       </div>`;
-    container.classList.add('show');
-    empty.style.display = 'none';
-    return;
   }
 
-  let html = '';
-  results.forEach((r, i) => {
-    if (!r.team) {
-      html += `<div class="match-card"><p style="color:#666;">💡 ${r.note}</p></div>`;
-      return;
+  btn.disabled = false; btn.textContent = '🔍 AI分析';
+}
+
+function renderAIResult(r, query) {
+  const team = TEAMS.find(t => t.id === r.bestTeam);
+  if (!team) { document.getElementById('resultContainer').innerHTML = '<p>チームが見つかりません</p>'; return; }
+
+  let html = `
+    <div class="match-card highlight">
+      <div class="match-header">
+        <span class="match-badge">${r.isVacancy ? '🎯 空きポジション' : '💡 最適チーム'}</span>
+        <span class="best-badge">✨ AIベストマッチ</span>
+        ${r.priority === '最優先' ? '<span style="background:var(--red);color:#fff;padding:3px 8px;border-radius:8px;font-size:11px;">🔴 最優先募集中</span>' : ''}
+      </div>
+      <div class="match-team">${team.icon} ${team.name}</div>
+      <div class="match-role">ポジション: ${r.position}</div>
+
+      <div class="ai-analysis">
+        <div class="ai-label">🤖 AI分析</div>
+        <div class="ai-text">${r.analysis}</div>
+      </div>
+
+      <div class="pitch-box">
+        <div class="pitch-label">📣 ビジター招待トーク（そのまま使えます）</div>
+        <div class="pitch-text">${r.pitch}</div>
+      </div>
+
+      <div class="flow-box">
+        <div class="flow-label">🔄 あなたを含めた新しい顧客フロー</div>
+        <div class="flow-text">${r.customerFlow}</div>
+      </div>
+
+      <div class="members-box">
+        <h4>👥 チームメンバー（${team.members.length}名）</h4>
+        ${team.members.map(m => `<div class="member-row"><span class="member-role">${m.r}</span><span class="member-name">${m.n}</span></div>`).join('')}
+        <div class="member-row" style="background:#fff5f5;border-radius:8px;padding:8px;margin-top:4px;">
+          <span class="member-role" style="color:var(--red);font-weight:700;">${r.position}</span>
+          <span class="member-name" style="color:var(--red);">← ゲストのポジション</span>
+        </div>
+      </div>
+
+      <div class="share-box">
+        <button class="share-btn" onclick="copyText(this, \`${r.pitch.replace(/`/g,"'")}\`)">📋 トークをコピー</button>
+        <button class="share-btn" onclick="shareLine(\`${query}\`, \`${team.name}\`)">💬 LINEで送る</button>
+      </div>
+    </div>`;
+
+  // サブチーム
+  if (r.secondTeam) {
+    const sub = TEAMS.find(t => t.id === r.secondTeam);
+    if (sub) {
+      html += `
+        <div class="match-card">
+          <div class="match-header"><span class="match-badge" style="background:#6366f1;">🔗 サブチーム</span></div>
+          <div class="match-team">${sub.icon} ${sub.name}</div>
+          <p style="color:#666;margin-top:8px;">${r.secondReason || ''}</p>
+          <div class="members-box" style="margin-top:12px;">
+            <h4>👥 メンバー</h4>
+            ${sub.members.map(m => `<div class="member-row"><span class="member-role">${m.r}</span><span class="member-name">${m.n}</span></div>`).join('')}
+          </div>
+        </div>`;
     }
+  }
 
-    const isSlot = r.type === 'slot';
-    html += `
-      <div class="match-card ${isSlot ? 'new-slot' : ''}">
-        <div class="match-header">
-          <span class="match-badge">${isSlot ? '🎯 空きポジション' : '💡 関連チーム'}</span>
-          ${i === 0 ? '<span style="background:var(--gold);color:#fff;padding:3px 10px;border-radius:10px;font-size:11px;font-weight:700;">ベストマッチ</span>' : ''}
-        </div>
-        <div class="match-team">${r.team.icon} ${r.team.name}</div>
-        ${isSlot ? `<div class="match-role">ポジション: ${r.slot.role}（${r.slot.priority}）</div>` : ''}
-        ${r.note ? `<p style="color:#888;font-size:13px;margin-bottom:12px;">💡 ${r.note}</p>` : ''}
-
-        <div class="pitch-box">
-          <div class="pitch-label">📣 ビジター招待トーク</div>
-          <div class="pitch-text">
-            「${query}をされているんですね！実はジャンヌには<strong>「${r.team.name}」</strong>というパワーチームがあって、${isSlot ? `<strong>${r.slot.role}</strong>のポジションがちょうど空いているんです。` : 'あなたの専門分野が活きるチームがあります。'}
-            <br><br>このチームの<strong>${r.team.members.length}名のメンバー全員</strong>のお客さんが、あなたのお客さんにつながる仕組みなんです。例えば…
-            <br>🔄 ${r.team.flow.split('→').slice(0,4).join('→')}→ <strong>あなた</strong>
-            <br><br>つまり、入った瞬間に${r.team.members.length}名から紹介が来る可能性があります。一度見学に来ませんか？」</div>
-        </div>
-
-        <div class="members-box">
-          <h4>👥 チームメンバー（${r.team.members.length}名）— あなたの仲間になる人たち</h4>
-          ${r.team.members.map(m => `
-            <div class="member-row">
-              <span class="member-role">${m.role}</span>
-              <span class="member-name">${m.name}</span>
-              <span style="font-size:11px;color:#999;">${m.detail}</span>
-            </div>
-          `).join('')}
-        </div>
-
-        <div class="flow-box">
-          <div class="flow-label">🔄 顧客フロー（1人のお客さんがチーム内を巡る流れ）</div>
-          <div class="flow-text">${r.team.flow}</div>
-        </div>
-
-        <div class="share-box">
-          <button class="share-btn" onclick="copyPitch(this, '${query}', '${r.team.name}', ${r.team.members.length})">📋 トーク文をコピー</button>
-          <button class="share-btn" onclick="shareLine('${query}', '${r.team.name}')">💬 LINEで送る</button>
-        </div>
-      </div>`;
-  });
-
-  container.innerHTML = html;
-  container.classList.add('show');
-  empty.style.display = 'none';
+  document.getElementById('resultContainer').innerHTML = html;
 }
 
-function copyPitch(btn, query, teamName, count) {
-  const text = `【BNIジャンヌチャプター】\n\n${query}をされている方へ\n\nジャンヌには「${teamName}」というパワーチームがあり、あなたのポジションが空いています。\n\n入った瞬間に${count}名のプロから紹介が来る仕組みです。\n\n▼ 詳細はこちら\nhttps://rerailoffice-max.github.io/bni-jeanne-chapter/\n\n一度見学に来ませんか？`;
-  navigator.clipboard.writeText(text).then(() => {
-    btn.textContent = '✅ コピーしました！';
-    setTimeout(() => btn.textContent = '📋 トーク文をコピー', 2000);
+function copyText(btn, text) {
+  navigator.clipboard.writeText(`【BNIジャンヌチャプター】\n\n${text}\n\n▼ 詳細\nhttps://rerailoffice-max.github.io/bni-jeanne-chapter/`).then(() => {
+    btn.textContent = '✅ コピー完了'; setTimeout(() => btn.textContent = '📋 トークをコピー', 2000);
   });
 }
-
 function shareLine(query, teamName) {
-  const text = encodeURIComponent(`【BNIジャンヌ】${query}の方へ\n「${teamName}」にあなたのポジションが空いています！\nhttps://rerailoffice-max.github.io/bni-jeanne-chapter/`);
-  window.open(`https://line.me/R/share?text=${text}`, '_blank');
+  const t = encodeURIComponent(`【BNIジャンヌ】${query}の方へ\n「${teamName}」にあなたのポジションが空いています！\nhttps://rerailoffice-max.github.io/bni-jeanne-chapter/`);
+  window.open(`https://line.me/R/share?text=${t}`, '_blank');
 }
 
-// イベントリスナー
-document.getElementById('searchInput').addEventListener('input', (e) => search(e.target.value));
+// タグクリック & Enter
 document.querySelectorAll('.tag').forEach(tag => {
   tag.addEventListener('click', () => {
-    const q = tag.dataset.q;
-    document.getElementById('searchInput').value = q;
+    document.getElementById('searchInput').value = tag.dataset.q;
     document.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
     tag.classList.add('active');
-    search(q);
+    doSearch();
   });
 });
+document.getElementById('searchInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') doSearch(); });
 </script>
 
 </body>
